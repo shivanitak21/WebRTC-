@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebRTC — Camera (Sender)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: rgba(255,255,255,0.07);
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent-dim2: rgba(0,229,160,0.06);
+    --red: #ff4d6d;
+    --red-dim: rgba(255,77,109,0.12);
+    --amber: #ffb347;
+    --text: #e8eaed;
+    --text-muted: #6b7280;
+    --text-dim: #9ca3af;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+    --radius: 10px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Subtle grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+    width: 100%;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .role-pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 99px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--accent); }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .dot.green { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot.red   { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+  .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot.pulse { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  #status-text { flex: 1; }
+
+  /* Main layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* Video */
+  .video-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  .video-wrap {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: #000;
+  }
+  video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .video-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    transition: opacity 0.4s;
+  }
+  .video-overlay.hidden { opacity: 0; pointer-events: none; }
+  .cam-icon {
+    width: 48px; height: 48px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+  }
+  .cam-icon svg { width: 22px; height: 22px; }
+  .overlay-text { font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+
+  /* REC badge */
+  .rec-badge {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,77,109,0.4);
+    border-radius: 6px;
+    padding: 4px 10px;
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--red);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .rec-badge.visible { opacity: 1; }
+  .rec-badge .dot { width: 6px; height: 6px; background: var(--red); animation: pulse 1s infinite; }
+
+  /* Viewer count */
+  .viewer-badge {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .viewer-badge.visible { opacity: 1; }
+
+  /* Video footer stats */
+  .video-stats {
+    display: flex; gap: 0;
+    border-top: 1px solid var(--border);
+  }
+  .vstat {
+    flex: 1;
+    padding: 10px 14px;
+    border-right: 1px solid var(--border);
+  }
+  .vstat:last-child { border-right: none; }
+  .vstat-val { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--text); }
+  .vstat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Side panel */
+  .side-panel { display: flex; flex-direction: column; gap: 14px; }
+
+  .panel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .panel-title {
+    font-size: 10px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* Controls */
+  .ctrl-row { margin-bottom: 14px; }
+  .ctrl-row:last-child { margin-bottom: 0; }
+  .ctrl-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-family: var(--mono);
+  }
+  select, .seg-ctrl {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: rgba(0,229,160,0.3); }
+
+  /* Toggle row */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .toggle-row:last-child { margin-bottom: 0; }
+  .toggle-label { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .toggle {
+    width: 34px; height: 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent-dim); border-color: rgba(0,229,160,0.3); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); background: var(--accent); }
+
+  /* Big action button */
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-danger {
+    width: 100%;
+    padding: 10px;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid rgba(255,77,109,0.2);
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: none;
+  }
+  .btn-danger:hover { opacity: 0.8; }
+
+  /* Log */
+  .log-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .log-list::-webkit-scrollbar { width: 3px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-item {
+    display: flex; gap: 8px; align-items: baseline;
+    font-family: var(--mono); font-size: 11px;
+    animation: fadeSlide 0.25s ease;
+  }
+  @keyframes fadeSlide { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform:none; } }
+  .log-time { color: var(--text-muted); flex-shrink: 0; }
+  .log-msg { color: var(--text-dim); }
+  .log-item.ok .log-msg  { color: var(--accent); }
+  .log-item.err .log-msg { color: var(--red); }
+  .log-item.info .log-msg { color: var(--amber); }
+
+  /* Viewer link card */
+  .link-card {
+    background: var(--accent-dim2);
+    border: 1px solid rgba(0,229,160,0.15);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .link-label { font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 8px; }
+  .link-url {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: block; margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .btn-copy {
+    width: 100%; padding: 7px;
+    background: transparent;
+    border: 1px solid rgba(0,229,160,0.25);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: var(--mono); font-size: 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-copy:hover { background: var(--accent-dim); }
+
+  @media (max-width: 640px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="header-left">
+      <span class="role-pill">Sender</span>
+      <h1>Camera <span>Stream</span></h1>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">Not started — click Start Camera below</span>
+  </div>
+
+  <div class="main-grid">
+    <!-- Video -->
+    <div class="video-card">
+      <div class="video-wrap">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div class="video-overlay" id="video-overlay">
+          <div class="cam-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+            </svg>
+          </div>
+          <span class="overlay-text">Camera off</span>
+        </div>
+        <div class="rec-badge" id="rec-badge">
+          <div class="dot"></div> LIVE
+        </div>
+        <div class="viewer-badge" id="viewer-badge">1 viewer</div>
+      </div>
+      <div class="video-stats">
+        <div class="vstat">
+          <div class="vstat-val" id="stat-res">—</div>
+          <div class="vstat-lbl">Resolution</div>
+        </div>
+        <div class="vstat">
+          <div class="vstat-val" id="stat-fps">—</div>
+          <div class="vstat-lbl">FPS</div>
+        </div>
+        <div class="vstat">
+          <div class="vstat-val" id="stat-state">idle</div>
+          <div class="vstat-lbl">WebRTC state</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side-panel">
+
+      <!-- Constraints -->
+      <div class="panel-card">
+        <div class="panel-title">Constraints</div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Resolution</div>
+          <select id="res-select">
+            <option value="any">Any (default)</option>
+            <option value="hd" selected>HD 1280×720</option>
+            <option value="fhd">Full HD 1920×1080</option>
+            <option value="vga">VGA 640×480</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Frame rate</div>
+          <select id="fps-select">
+            <option value="any">Any</option>
+            <option value="15">15 fps</option>
+            <option value="30" selected>30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Audio</span>
+          <div class="toggle on" id="toggle-audio" onclick="toggleAudio()"></div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Echo cancel</span>
+          <div class="toggle on" id="toggle-ec" onclick="toggleEc()"></div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="panel-card">
+        <div class="panel-title">Controls</div>
+        <button class="btn-primary" id="btn-start" onclick="startCamera()">Start Camera</button>
+        <div style="height:8px"></div>
+        <button class="btn-danger" id="btn-stop" onclick="stopAll()">Stop Stream</button>
+      </div>
+
+      <!-- Viewer link -->
+      <div class="link-card">
+        <div class="link-label">Viewer URL</div>
+        <code class="link-url" id="viewer-url">http://localhost:3000/viewer</code>
+        <button class="btn-copy" onclick="copyLink()">Copy link</button>
+      </div>
+
+      <!-- Log -->
+      <div class="panel-card">
+        <div class="panel-title">Event log</div>
+        <ul class="log-list" id="log"></ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- State ---
+  let ws, pc, localStream;
+  let audioEnabled = true, ecEnabled = true;
+
+  // --- Logging ---
+  function log(msg, type = '') {
+    const li = document.createElement('li');
+    li.className = 'log-item ' + type;
+    const now = new Date();
+    const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    li.innerHTML = `<span class="log-time">${t}</span><span class="log-msg">${msg}</span>`;
+    const ul = document.getElementById('log');
+    ul.prepend(li);
+    if (ul.children.length > 30) ul.removeChild(ul.lastChild);
+  }
+
+  // --- Status bar ---
+  function setStatus(text, color) {
+    document.getElementById('status-text').textContent = text;
+    const dot = document.getElementById('status-dot');
+    dot.className = 'dot ' + color;
+  }
+
+  // --- Toggles ---
+  function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    document.getElementById('toggle-audio').classList.toggle('on', audioEnabled);
+    document.getElementById('toggle-ec').style.opacity = audioEnabled ? '1' : '0.3';
+  }
+  function toggleEc() {
+    ecEnabled = !ecEnabled;
+    document.getElementById('toggle-ec').classList.toggle('on', ecEnabled);
+  }
+
+  // --- Build constraints ---
+  function buildConstraints() {
+    const res = document.getElementById('res-select').value;
+    const fps = document.getElementById('fps-select').value;
+    const resMap = {
+      any: true,
+      hd:  { width: { ideal: 1280 }, height: { ideal: 720 } },
+      fhd: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+      vga: { width: { ideal: 640 },  height: { ideal: 480 } },
+    };
+    let video = resMap[res];
+    if (fps !== 'any' && typeof video === 'object') {
+      video.frameRate = { ideal: parseInt(fps) };
+    }
+    const audio = audioEnabled
+      ? (ecEnabled ? { echoCancellation: true, noiseSuppression: true } : true)
+      : false;
+      console.log('Constraints:', JSON.stringify({ video, audio }));
+    return { video, audio };
+  }
+
+  // --- Start camera ---
+  async function startCamera() {
+    try {
+      setStatus('Requesting camera access...', 'amber pulse');
+      log('Calling getUserMedia()...', 'info');
+      const constraints = buildConstraints();
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      const videoTrack = localStream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      document.getElementById('localVideo').srcObject = localStream;
+      document.getElementById('video-overlay').classList.add('hidden');
+      document.getElementById('stat-res').textContent = `${settings.width}×${settings.height}`;
+      document.getElementById('stat-fps').textContent = settings.frameRate ? `${Math.round(settings.frameRate)}` : '—';
+
+      log(`Camera: ${settings.width}×${settings.height} @ ${Math.round(settings.frameRate||0)}fps`, 'ok');
+      setStatus('Camera active — connecting to server...', 'amber pulse');
+
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-stop').style.display = 'block';
+
+      connectWS();
+    } catch (err) {
+      log(`getUserMedia error: ${err.name}`, 'err');
+      setStatus('Camera error: ' + err.name, 'red');
+    }
+  }
+
+  // --- WebSocket ---
+  function connectWS() {
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${wsProto}//${location.host}`);
+
+    ws.onopen = () => {
+      log('WebSocket connected', 'ok');
+      ws.send(JSON.stringify({ type: 'register', role: 'sender' }));
+      setStatus('Waiting for viewer to open viewer page...', 'amber pulse');
+    };
+
+    ws.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+      log(`← ${msg.type}`);
+
+      if (msg.type === 'viewer-joined') {
+        log('Viewer joined — creating offer', 'ok');
+        setStatus('Viewer connected — negotiating...', 'amber pulse');
+        await createOffer();
+      }
+
+      if (msg.type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        log('Remote description set', 'ok');
+      }
+
+      if (msg.type === 'ice-candidate' && msg.candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+        log('ICE candidate added');
+      }
+
+      if (msg.type === 'peer-disconnected') {
+        log('Viewer disconnected', 'err');
+        setStatus('Viewer disconnected — waiting...', 'amber pulse');
+        document.getElementById('rec-badge').classList.remove('visible');
+        document.getElementById('viewer-badge').classList.remove('visible');
+        document.getElementById('stat-state').textContent = 'idle';
+      }
+    };
+
+    ws.onclose = () => log('WebSocket closed', 'err');
+    ws.onerror = () => { log('WebSocket error', 'err'); setStatus('Connection error', 'red'); };
+  }
+
+  // --- Create RTCPeerConnection and offer ---
+  async function createOffer() {
+    pc = new RTCPeerConnection({
+  iceServers: [
+      {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "2242de93d6f80d7dac6a76f6",
+        credential: "pcNR8Q/U+DM6WrTd",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "2242de93d6f80d7dac6a76f6",
+        credential: "pcNR8Q/U+DM6WrTd",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "2242de93d6f80d7dac6a76f6",
+        credential: "pcNR8Q/U+DM6WrTd",
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "2242de93d6f80d7dac6a76f6",
+        credential: "pcNR8Q/U+DM6WrTd",
+      },
+  ],
+    });
+
+    // Add tracks from local stream to peer connection
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream);
+      log(`Added track: ${track.kind}`);
+    });
+
+    // Send ICE candidates to viewer via signalling server
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        ws.send(JSON.stringify({ type: 'ice-candidate', candidate: e.candidate }));
+        log('→ ICE candidate sent');
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      document.getElementById('stat-state').textContent = s;
+      log(`Connection state: ${s}`, s === 'connected' ? 'ok' : s === 'failed' ? 'err' : '');
+      if (s === 'connected') {
+        setStatus('LIVE — streaming to viewer', 'green');
+        document.getElementById('rec-badge').classList.add('visible');
+        document.getElementById('viewer-badge').classList.add('visible');
+      }
+    };
+
+    // Create offer SDP
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'offer', sdp: offer }));
+    log('→ Offer sent to viewer', 'info');
+  }
+
+  // --- Stop ---
+  function stopAll() {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    if (pc) pc.close();
+    if (ws) ws.close();
+    document.getElementById('localVideo').srcObject = null;
+    document.getElementById('video-overlay').classList.remove('hidden');
+    document.getElementById('rec-badge').classList.remove('visible');
+    document.getElementById('viewer-badge').classList.remove('visible');
+    document.getElementById('stat-state').textContent = 'idle';
+    document.getElementById('stat-res').textContent = '—';
+    document.getElementById('stat-fps').textContent = '—';
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-stop').style.display = 'none';
+    setStatus('Stopped', 'red');
+    log('Stream stopped', 'err');
+  }
+
+  // --- Copy link ---
+  function copyLink() {
+    navigator.clipboard.writeText('http://localhost:3000/viewer');
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy link', 1500);
+  }
+
+  log('Page loaded — ready');
+  setStatus('Not started — click Start Camera below', '');
+</script>
+</body>
+</html>

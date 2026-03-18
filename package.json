@@ -1,0 +1,12 @@
+{
+  "name": "webrtc-camera-demo",
+  "version": "1.0.0",
+  "description": "WebRTC demo: stream webcam from one browser tab to another",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
