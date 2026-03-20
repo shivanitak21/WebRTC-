@@ -23,7 +23,10 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ 
+  server,
+  perMessageDeflate: false
+});
 
 // Store connected clients by role
 const clients = { sender: null, viewer: null };
@@ -71,9 +74,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n✅  WebRTC demo server running\n`);
-  console.log(`   Sender (camera) → http://localhost:${PORT}/sender`);
-  console.log(`   Viewer          → http://localhost:${PORT}/viewer\n`);
+  console.log(`\n✅  Server running on port ${PORT}\n`);
 });
