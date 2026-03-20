@@ -78,3 +78,15 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n✅  Server running on port ${PORT}\n`);
 });
+
+const RENDER_URL = 'https://webrtc-01rl.onrender.com';
+
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    require('https').get(RENDER_URL, (res) => {
+      console.log('Keep-alive ping:', res.statusCode);
+    }).on('error', (err) => {
+      console.log('Ping error:', err.message);
+    });
+  }, 14 * 60 * 1000);
+}
