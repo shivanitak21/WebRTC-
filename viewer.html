@@ -704,7 +704,12 @@
     };
 
     ws.onerror = () => { log('WebSocket error', 'err'); setStatus('Connection error', 'red'); };
-    ws.onclose = () => { log('WebSocket closed', 'err'); };
+    ws.onclose = () => {
+    log('WebSocket closed — reconnecting in 3s...', 'err');
+    setTimeout(() => {
+    ws = new WebSocket(`${wsProto}//${location.host}`);
+    }, 3000);
+};
 
     // --- Handle offer ---
     async function handleOffer(offerSdp) {

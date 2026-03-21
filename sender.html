@@ -600,7 +600,10 @@
       }
     };
 
-    ws.onclose = () => log('WebSocket closed', 'err');
+  ws.onclose = () => {
+    log('WebSocket closed — reconnecting...', 'err');
+    setTimeout(() => connectWS(), 3000);
+  };
     ws.onerror = () => { log('WebSocket error', 'err'); setStatus('Connection error', 'red'); };
   }
 
