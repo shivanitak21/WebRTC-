@@ -707,7 +707,8 @@
     ws.onclose = () => {
     log('WebSocket closed — reconnecting in 3s...', 'err');
     setTimeout(() => {
-    ws = new WebSocket(`${wsProto}//${location.host}`);
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}`);
     }, 3000);
 };
 
