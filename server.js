@@ -8,6 +8,7 @@ const server = http.createServer((req, res) => {
     "/": "sender.html",
     "/sender": "sender.html",
     "/viewer": "viewer.html",
+    "/favicon.ico": null,
   };
   const file = routes[req.url] || null;
   if (file) {

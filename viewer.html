@@ -574,20 +574,18 @@
       <!-- Side panel -->
       <div class="side-panel">
 
-      <div class="panel-card">
-  <div class="panel-title">Volume</div>
-  <button id="unmute-btn" 
-    onclick="unmuteAudio()" 
-    style="width:100%;padding:12px;margin-bottom:10px;
+        <div class="panel-card">
+          <div class="panel-title">Volume</div>
+          <button id="unmute-btn" onclick="unmuteAudio()" style="width:100%;padding:12px;margin-bottom:10px;
     background:#a78bfa;color:#26215C;border:none;
     border-radius:8px;font-size:14px;font-weight:700;
     cursor:pointer;">
-    Tap here to enable audio
-  </button>
-  <div class="ctrl-label">Output level</div>
-  <input type="range" min="0" max="1" step="0.05" value="1"
-    oninput="document.getElementById('remoteVideo').volume=this.value">
-</div>
+            Tap here to enable audio
+          </button>
+          <div class="ctrl-label">Output level</div>
+          <input type="range" min="0" max="1" step="0.05" value="1"
+            oninput="document.getElementById('remoteVideo').volume=this.value">
+        </div>
 
         <!-- What's happening -->
         <div class="panel-card">
@@ -605,7 +603,8 @@
           <div class="explain-item">
             <div class="explain-num">3</div>
             <div class="explain-text">This page replied with an <strong>SDP Answer</strong>, then both sides exchanged
-              <strong>ICE candidates</strong>.</div>
+              <strong>ICE candidates</strong>.
+            </div>
           </div>
           <div class="explain-item">
             <div class="explain-num">4</div>
@@ -628,12 +627,12 @@
   <script>
     let ws, pc;
     function unmuteAudio() {
-  const video = document.getElementById('remoteVideo');
-  video.muted = false;
-  video.volume = 1;
-  document.getElementById('unmute-btn').style.display = 'none';
-  log('Audio enabled', 'ok');
-}
+      const video = document.getElementById('remoteVideo');
+      video.muted = false;
+      video.volume = 1;
+      document.getElementById('unmute-btn').style.display = 'none';
+      log('Audio enabled', 'ok');
+    }
 
     function log(msg, type = '') {
       const li = document.createElement('li');
@@ -705,12 +704,12 @@
 
     ws.onerror = () => { log('WebSocket error', 'err'); setStatus('Connection error', 'red'); };
     ws.onclose = () => {
-    log('WebSocket closed — reconnecting in 3s...', 'err');
-    setTimeout(() => {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${proto}//${location.host}`);
-    }, 3000);
-};
+      log('WebSocket closed — reconnecting in 3s...', 'err');
+      setTimeout(() => {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}`);
+      }, 3000);
+    };
 
     // --- Handle offer ---
     async function handleOffer(offerSdp) {
@@ -765,14 +764,14 @@
         video.play().catch(() => {
           // Autoplay with audio blocked — mute and retry (user can unmute via slider)
           log('Autoplay blocked — muting to allow playback', 'info');
-         video.muted = true;
-video.play().then(() => {
-  // Show unmute button — user tap karega toh audio on hoga
-  document.getElementById('unmute-btn').style.display = 'block';
-  log('Tap unmute button for audio', 'info');
-}).catch(err => log('Play failed: ' + err.message, 'err'));
-          // Mute sirf temporarily tha — ab unmute karo
-          setTimeout(() => { video.muted = false; }, 1000);
+          video.muted = true;
+          video.play().then(() => {
+            const btn = document.getElementById('unmute-btn');
+            if (btn) btn.style.display = 'block';
+            log('Tap unmute button for audio', 'info');
+          }).catch(err => {
+            log('Play failed: ' + err.message, 'err');
+          });
         });
       };
 
